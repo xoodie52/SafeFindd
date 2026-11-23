@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeFind - 교내 프라이버시 안심 분실물 찾기</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- 상단 내비게이션 바 -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+            <!-- 로고 -->
+            <div class="flex items-center space-x-2.5 cursor-pointer" onclick="switchTab('board')">
+                <div class="bg-indigo-600 text-white p-2 rounded-xl shadow-sm">
+                    <i data-lucide="shield-check" class="w-5 h-5 sm:w-6 sm:h-6"></i>
+                </div>
+                <div>
+                    <span class="font-bold text-lg tracking-tight text-slate-900">SafeFind</span>
+                    <span class="hidden md:inline-block text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full ml-1">익명 채팅 매칭</span>
+                </div>
+            </div>
+
+            <!-- 빠른 데모 계정 전환기 (테스트용) -->
+            <div class="hidden lg:flex items-center bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 space-x-2">
+                <span class="text-[11px] font-bold text-slate-500 flex items-center">
+                    <i data-lucide="repeat" class="w-3.5 h-3.5 mr-1 text-indigo-600"></i> 빠른 체험 전환:
+                </span>
+                <button onclick="quickSwitchAccount('student1')" id="demo-btn-student1" class="text-xs px-2.5 py-1 rounded-lg font-semibold transition">
+                    student1 (분실자)
+                </button>
+                <button onclick="quickSwitchAccount('student2')" id="demo-btn-student2" class="text-xs px-2.5 py-1 rounded-lg font-semibold transition">
+                    student2 (습득자)
+                </button>
+            </div>
+
+            <!-- 사용자 정보 및 포인트 영역 -->
+            <div id="user-header-area" class="flex items-center space-x-2 sm:space-x-3">
+                <!-- JS에서 동적 렌더링 -->
+            </div>
+        </div>
+        <!-- 모바일용 빠른 데모 계정 전환 바 -->
+        <div class="lg:hidden bg-slate-50 border-t border-slate-200 px-4 py-1.5 flex items-center justify-center space-x-2 text-xs">
+            <span class="text-slate-500 font-medium">빠른 체험 전환:</span>
+            <button onclick="quickSwitchAccount('student1')" id="demo-btn-m-student1" class="px-2.5 py-0.5 rounded-md font-semibold transition">student1 (분실자)</button>
+            <button onclick="quickSwitchAccount('student2')" id="demo-btn-m-student2" class="px-2.5 py-0.5 rounded-md font-semibold transition">student2 (습득자)</button>
+        </div>
+    </header>
+
+    <!-- 토스트 알림 컨테이너 -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        
+        <!-- 비로그인 안내 배너 -->
+        <div id="guest-banner" class="hidden mb-6 bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl p-6 text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+                <h2 class="text-xl font-bold mb-1">개인정보 노출 없는 1:1 익명 채팅 분실물 센터</h2>
+                <p class="text-indigo-100 text-sm">전화번호나 실명 대신 익명 채팅으로 특징을 확인하고, 물건을 찾아준 학생에게 포인트를 지급하세요!</p>
+            </div>
+            <button onclick="openAuthModal('login')" class="bg-white text-indigo-600 hover:bg-indigo-50 font-semibold px-5 py-2.5 rounded-xl shadow-sm transition whitespace-nowrap">
+                시작하기 / 로그인
+            </button>
+        </div>
+
+        <!-- 상단 탭 내비게이션 -->
+        <div class="flex space-x-1 bg-slate-200/70 p-1.5 rounded-2xl mb-8 max-w-2xl mx-auto">
+            <button onclick="switchTab('board')" id="tab-btn-board" class="tab-btn flex-1 flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-white text-indigo-600 shadow-sm">
+                <span>📋 분실물 게시판</span>
+            </button>
+            <button onclick="switchTab('chats')" id="tab-btn-chats" class="tab-btn flex-1 flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all text-slate-600 hover:text-slate-900 relative">
+                <span>💬 내 익명 채팅방</span>
+                <span id="chat-badge-count" class="hidden bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">0</span>
+            </button>
+            <button onclick="switchTab('shop')" id="tab-btn-shop" class="tab-btn flex-1 flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all text-slate-600 hover:text-slate-900">
+                <span>🎁 포인트 보상샵</span>
+            </button>
+        </div>
+
+        <!-- ==================== 1. 분실물 게시판 탭 ==================== -->
+        <section id="tab-board" class="space-y-8">
+            
+            <!-- AI 스마트 매칭 추천 섹션 -->
+            <div class="bg-white border border-indigo-100 rounded-2xl p-5 sm:p-6 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div class="flex items-center space-x-2.5">
+                        <span class="bg-indigo-100 text-indigo-700 p-2 rounded-xl">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                        </span>
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base sm:text-lg">AI 키워드 유사도 자동 매칭 추천</h3>
+                            <p class="text-xs text-slate-500">분실물과 습득물의 장소 및 특징 키워드를 분석해 일치 확률이 높은 물건을 바로 연결해 줍니다.</p>
+                        </div>
+                    </div>
+                    <button onclick="openRegisterModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm transition flex items-center justify-center space-x-1.5 whitespace-nowrap">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>분실/습득물 등록</span>
+                    </button>
+                </div>
+                <div id="ai-matches-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- JS에서 AI 추천 매칭 카드 렌더링 -->
+                </div>
+            </div>
+
+            <!-- 검색 및 필터 바 -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="flex flex-col md:flex-row gap-3">
+                    <div class="relative flex-grow">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></i>
+                        <input type="text" id="search-input" oninput="renderItemsList()" placeholder="물건 이름, 장소, 특징 키워드 검색 (예: 에어팟, 2층, 쿼카)" 
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="filter-type" onchange="renderItemsList()" class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="ALL">전체 유형</option>
+                            <option value="LOST">분실했어요 (찾는 중)</option>
+                            <option value="FOUND">주웠어요 (보관 중)</option>
+                        </select>
+                        <select id="filter-category" onchange="renderItemsList()" class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="ALL">전체 카테고리</option>
+                            <option value="전자기기">전자기기</option>
+                            <option value="지갑/카드">지갑/카드</option>
+                            <option value="책/노트">책/노트</option>
+                            <option value="의류/기타">의류/기타</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 전체 물건 목록 그리드 -->
+            <div>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-lg text-slate-800">전체 분실물 / 습득물 목록</h3>
+                    <span id="items-count" class="text-sm text-slate-500 font-medium">총 0건</span>
+                </div>
+                <div id="items-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <!-- JS에서 물건 카드 렌더링 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 2. 내 익명 채팅방 탭 ==================== -->
+        <section id="tab-chats" class="hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-3 min-h-[560px]">
+                
+                <!-- 왼쪽: 참여 중인 채팅방 목록 -->
+                <div class="border-b md:border-b-0 md:border-r border-slate-200 flex flex-col bg-slate-50/50">
+                    <div class="p-4 border-b border-slate-200 bg-white">
+                        <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+                            <i data-lucide="message-square" class="w-4 h-4 text-indigo-600"></i>
+                            <span>참여 중인 익명 채팅</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">상대방에게 내 개인정보가 공개되지 않습니다.</p>
+                    </div>
+                    <div id="chat-rooms-list" class="divide-y divide-slate-100 overflow-y-auto flex-grow max-h-[240px] md:max-h-[500px]">
+                        <!-- JS에서 채팅방 목록 렌더링 -->
+                    </div>
+                </div>
+
+                <!-- 오른쪽: 활성화된 1:1 채팅창 -->
+                <div id="active-chat-panel" class="md:col-span-2 flex flex-col bg-white">
+                    <!-- JS에서 선택된 채팅방 내용 렌더링 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 3. 포인트 보상샵 탭 ==================== -->
+        <section id="tab-shop" class="hidden space-y-8">
+            <!-- 상단 포인트 현황 배너 -->
+            <div class="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl p-6 sm:p-8 text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-indigo-300 bg-indigo-900/50 px-3 py-1 rounded-full">Reward Program</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold mt-2">선한 영향력 포인트 보상샵</h2>
+                    <p class="text-slate-300 text-sm mt-1">분실물을 찾아주고 채팅방에서 '전달 완료' 시 습득자에게 <strong class="text-amber-300">+50P</strong>가 지급됩니다!</p>
+                </div>
+                <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-5 text-center min-w-[180px]">
+                    <div class="text-xs text-indigo-200 font-medium">나의 보유 포인트</div>
+                    <div id="shop-user-points" class="text-3xl font-extrabold text-amber-400 mt-1">0 P</div>
+                </div>
+            </div>
+
+            <!-- 교환 가능 리워드 상품 -->
+            <div>
+                <h3 class="font-bold text-lg text-slate-800 mb-4">교환 가능 리워드</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <!-- 상품 1 -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between hover:border-indigo-300 transition">
+                        <div>
+                            <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center mb-4">
+                                <i data-lucide="cookie" class="w-6 h-6"></i>
+                            </div>
+                            <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg">인기</span>
+                            <h4 class="font-bold text-lg text-slate-900 mt-2">매점 간식 교환권</h4>
+                            <p class="text-sm text-slate-500 mt-1">교내 매점에서 2,000원 상당의 간식 및 음료와 교환할 수 있는 모바일 쿠폰입니다.</p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                            <span class="font-extrabold text-indigo-600 text-lg">50 P</span>
+                            <button onclick="redeemReward('매점 간식 교환권', 50)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
+                                교환하기
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 상품 2 -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between hover:border-indigo-300 transition">
+                        <div>
+                            <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mb-4">
+                                <i data-lucide="award" class="w-6 h-6"></i>
+                            </div>
+                            <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">생기부 연계</span>
+                            <h4 class="font-bold text-lg text-slate-900 mt-2">봉사활동 1시간 인증</h4>
+                            <p class="text-sm text-slate-500 mt-1">교내 유실물 찾기 봉사 공로를 인정받아 창의적 체험활동 봉사 1시간이 인증됩니다.</p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                            <span class="font-extrabold text-indigo-600 text-lg">100 P</span>
+                            <button onclick="redeemReward('봉사활동 1시간 인증', 100)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
+                                교환하기
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 상품 3 -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between hover:border-indigo-300 transition">
+                        <div>
+                            <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+                                <i data-lucide="book-open" class="w-6 h-6"></i>
+                            </div>
+                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">독서 혜택</span>
+                            <h4 class="font-bold text-lg text-slate-900 mt-2">도서관 우선 대출권</h4>
+                            <p class="text-sm text-slate-500 mt-1">교내 도서관 신착 도서 및 인기 도서를 대기 없이 우선 대출할 수 있는 이용권입니다.</p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                            <span class="font-extrabold text-indigo-600 text-lg">30 P</span>
+                            <button onclick="redeemReward('도서관 우선 대출권', 30)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
+                                교환하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 내 보유 쿠폰함 -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <div class="flex items-center space-x-2 mb-4">
+                    <i data-lucide="ticket" class="w-5 h-5 text-indigo-600"></i>
+                    <h3 class="font-bold text-lg text-slate-800">내 보유 쿠폰함</h3>
+                </div>
+                <div id="my-coupons-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- JS에서 보유 쿠폰 렌더링 -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12">
+        <div class="max-w-6xl mx-auto px-4 text-center text-xs text-slate-400">
+            <p class="font-medium text-slate-500">SafeFind - 인공지능 기초 수행평가 프로젝트</p>
+            <p class="mt-1">개인정보 비식별화 · AI 키워드 유사도 매칭 · 1:1 익명 채팅 및 포인트 보상 시스템</p>
+        </div>
+    </footer>
+
+    <!-- ==================== 모달 1: 물건 등록 모달 ==================== -->
+    <div id="register-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeRegisterModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <div class="mb-5">
+                <h3 class="text-xl font-bold text-slate-900">분실물 / 습득물 등록</h3>
+                <p class="text-xs text-slate-500 mt-1">이름이나 연락처는 적지 마세요. 등록 후 1:1 익명 채팅으로 안전하게 대화할 수 있습니다.</p>
+            </div>
+
+            <form id="register-form" onsubmit="handleRegisterItem(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-2">등록 유형</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="itemType" value="LOST" class="peer sr-only" checked>
+                            <div class="p-3.5 rounded-xl border-2 border-slate-200 peer-checked:border-rose-500 peer-checked:bg-rose-50/50 transition text-center">
+                                <div class="font-bold text-sm text-slate-800 peer-checked:text-rose-600">😥 분실했어요 (찾는 중)</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="itemType" value="FOUND" class="peer sr-only">
+                            <div class="p-3.5 rounded-xl border-2 border-slate-200 peer-checked:border-emerald-500 peer-checked:bg-emerald-50/50 transition text-center">
+                                <div class="font-bold text-sm text-slate-800 peer-checked:text-emerald-600">🙌 주웠어요 (+50P 적립)</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">카테고리</label>
+                        <select id="reg-category" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="전자기기">전자기기</option>
+                            <option value="지갑/카드">지갑/카드</option>
+                            <option value="책/노트">책/노트</option>
+                            <option value="의류/기타">의류/기타</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">분실/습득 장소</label>
+                        <input type="text" id="reg-location" required placeholder="예: 본관 2층 복도, 급식실 앞" 
+                            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">물건 특징 상세 설명 (AI 매칭용)</label>
+                    <textarea id="reg-description" rows="3" required placeholder="색상, 브랜드, 케이스 종류 등 AI가 다른 글과 매칭할 수 있도록 특징을 적어주세요."
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-sm transition">
+                    게시판에 등록하기
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== 모달 2: 로그인 / 회원가입 모달 ==================== -->
+    <div id="auth-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-xl relative">
+            <button onclick="closeAuthModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="text-center mb-6">
+                <div class="bg-indigo-100 text-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="user-check" class="w-6 h-6"></i>
+                </div>
+                <h3 id="auth-modal-title" class="text-xl font-bold text-slate-900">익명 계정 로그인</h3>
+                <p class="text-xs text-slate-500 mt-1">실명이나 전화번호 없이 익명 학번 ID로 안전하게 이용하세요.</p>
+            </div>
+
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">익명 아이디 (예: student1)</label>
+                    <input type="text" id="auth-username" required placeholder="아이디 입력" 
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">비밀번호</label>
+                    <input type="password" id="auth-password" required placeholder="비밀번호 입력" 
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <button type="submit" id="auth-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-sm transition">
+                    로그인하기
+                </button>
+            </form>
+
+            <div class="mt-4 text-center">
+                <button type="button" onclick="toggleAuthMode()" id="auth-toggle-text" class="text-xs text-indigo-600 hover:underline font-medium">
+                    계정이 없으신가요? 익명 회원가입
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 모달 3: 전달 완료 확인 커스텀 모달 (confirm 대체) ==================== -->
+    <div id="complete-confirm-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl text-center">
+            <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <i data-lucide="handshake" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900">물건 전달을 완료할까요?</h3>
+            <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+                전달 완료 처리 시 해당 게시글은 <strong>'완료됨'</strong> 상태로 변경되며,<br/>
+                물건을 찾아준 습득자에게 <strong class="text-indigo-600">+50 포인트</strong>가 즉시 지급됩니다!
+            </p>
+            <div class="grid grid-cols-2 gap-2.5 mt-6">
+                <button onclick="closeCompleteModal()" class="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
+                    취소
+                </button>
+                <button onclick="confirmCompleteHandover()" class="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition">
+                    네, 전달 완료!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== JavaScript 애플리케이션 로직 ==================== -->
+    <script>
+        const STORAGE_KEYS = {
+            USERS: 'safefind_chat_users_v2',
+            CURRENT_USER: 'safefind_chat_current_v2',
+            ITEMS: 'safefind_chat_items_v2',
+            CHATS: 'safefind_chat_rooms_v2'
+        };
+
+        let authMode = 'login';
+        let activeChatId = null;
+        let pendingCompleteChatId = null;
+
+        // --- 1. 초기 샘플 데이터 세팅 ---
+        const DEFAULT_USERS = {
+            'student1': { password: '123', points: 30, coupons: [] },
+            'student2': { password: '123', points: 50, coupons: [] }
+        };
+
+        const DEFAULT_ITEMS = [
+            {
+                id: 'item-1',
+                type: 'LOST',
+                category: '전자기기',
+                location: '본관 2층 정수기 옆',
+                description: '흰색 애플 에어팟 프로 케이스 잃어버렸습니다. 쿼카 스티커가 붙어있어요.',
+                author: 'student1',
+                status: 'OPEN',
+                createdAt: '11/23 12:40'
+            },
+            {
+                id: 'item-2',
+                type: 'FOUND',
+                category: '전자기기',
+                location: '본관 2층 복도',
+                description: '흰색 에어팟 프로 케이스 주워서 보관 중입니다. 귀여운 캐릭터 스티커 부착되어 있습니다.',
+                author: 'student2',
+                status: 'OPEN',
+                createdAt: '11/23 13:10'
+            },
+            {
+                id: 'item-3',
+                type: 'FOUND',
+                category: '지갑/카드',
+                location: '체육관 스탠드',
+                description: '검정색 나이키 카드지갑 습득했습니다. 안에 학생용 교통카드가 들어있어요.',
+                author: 'student2',
+                status: 'OPEN',
+                createdAt: '11/23 14:05'
+            }
+        ];
+
+        const DEFAULT_CHATS = [
+            {
+                id: 'chat-item-2-student1',
+                itemId: 'item-2',
+                authorId: 'student2',     // 게시글 작성자 (습득자)
+                requesterId: 'student1',  // 채팅 요청자 (분실자)
+                finderId: 'student2',     // 포인트 수령 대상 (습득자)
+                status: 'ACTIVE',
+                messages: [
+                    {
+                        sender: 'student1',
+                        text: '안녕하세요! 본관 2층에서 잃어버린 제 에어팟 케이스인 것 같아요.',
+                        time: '13:15'
+                    },
+                    {
+                        sender: 'student2',
+                        text: '안녕하세요! 케이스 뒤에 붙은 스티커가 어떤 모양인지 말씀해주실 수 있나요?',
+                        time: '13:16'
+                    }
+                ]
+            }
+        ];
+
+        // 로컬 스토리지 헬퍼
+        function getUsers() {
+            const data = localStorage.getItem(STORAGE_KEYS.USERS);
+            if (!data) {
+                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
+                return DEFAULT_USERS;
+            }
+            return JSON.parse(data);
+        }
+
+        function saveUsers(users) {
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+        }
+
+        function getCurrentUser() {
+            let user = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+            if (user === null && !localStorage.getItem('safefind_initialized_v2')) {
+                // 첫 접속 시 student1로 자동 로그인하여 즉시 체험 가능하도록 설정
+                localStorage.setItem('safefind_initialized_v2', 'true');
+                localStorage.setItem(STORAGE_KEYS.CURRENT_USER, 'student1');
+                return 'student1';
+            }
+            return user;
+        }
+
+        function setCurrentUser(username) {
+            if (username) {
+                localStorage.setItem(STORAGE_KEYS.CURRENT_USER, username);
+            } else {
+                localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+            }
+            updateUI();
+        }
+
+        function getItems() {
+            const data = localStorage.getItem(STORAGE_KEYS.ITEMS);
+            if (!data) {
+                localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(DEFAULT_ITEMS));
+                return DEFAULT_ITEMS;
+            }
+            return JSON.parse(data);
+        }
+
+        function saveItems(items) {
+            localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items));
+        }
+
+        function getChats() {
+            const data = localStorage.getItem(STORAGE_KEYS.CHATS);
+            if (!data) {
+                localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify(DEFAULT_CHATS));
+                return DEFAULT_CHATS;
+            }
+            return JSON.parse(data);
+        }
+
+        function saveChats(chats) {
+            localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify(chats));
+        }
+
+        // --- 2. 토스트 알림 ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const styles = {
+                success: 'bg-emerald-600 text-white',
+                error: 'bg-rose-600 text-white',
+                info: 'bg-slate-800 text-white'
+            };
+            toast.className = `${styles[type] || styles.info} px-4 py-3 rounded-xl shadow-lg text-xs sm:text-sm font-medium flex items-center justify-between pointer-events-auto transform transition-all duration-300 translate-y-2 opacity-0`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('translate-y-2', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // --- 3. 빠른 데모 계정 전환 및 일반 인증 ---
+        function quickSwitchAccount(username) {
+            const users = getUsers();
+            if (!users[username]) {
+                users[username] = { password: '123', points: 50, coupons: [] };
+                saveUsers(users);
+            }
+            setCurrentUser(username);
+            const roleLabel = username === 'student1' ? '분실자' : '습득자';
+            showToast(`🔄 '${username}' (${roleLabel}) 계정으로 전환되었습니다!`, 'info');
+        }
+
+        function openAuthModal(mode = 'login') {
+            authMode = mode;
+            updateAuthModalUI();
+            document.getElementById('auth-modal').classList.remove('hidden');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+            document.getElementById('auth-form').reset();
+        }
+
+        function toggleAuthMode() {
+            authMode = authMode === 'login' ? 'signup' : 'login';
+            updateAuthModalUI();
+        }
+
+        function updateAuthModalUI() {
+            const title = document.getElementById('auth-modal-title');
+            const btn = document.getElementById('auth-submit-btn');
+            const toggleText = document.getElementById('auth-toggle-text');
+            if (authMode === 'login') {
+                title.textContent = '익명 계정 로그인';
+                btn.textContent = '로그인하기';
+                toggleText.textContent = '계정이 없으신가요? 5초 만에 익명 회원가입';
+            } else {
+                title.textContent = '익명 계정 회원가입';
+                btn.textContent = '가입하기 (가입 축하 +50P)';
+                toggleText.textContent = '이미 계정이 있으신가요? 로그인하기';
+            }
+        }
+
+        function handleAuthSubmit(e) {
+            e.preventDefault();
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+            const users = getUsers();
+
+            if (authMode === 'signup') {
+                if (users[username]) {
+                    showToast('이미 존재하는 익명 아이디입니다.', 'error');
+                    return;
+                }
+                users[username] = { password, points: 50, coupons: [] };
+                saveUsers(users);
+                setCurrentUser(username);
+                closeAuthModal();
+                showToast(`환영합니다, ${username}님! 가입 축하 50P가 지급되었습니다.`, 'success');
+            } else {
+                if (!users[username] || users[username].password !== password) {
+                    showToast('아이디 또는 비밀번호가 일치하지 않습니다.', 'error');
+                    return;
+                }
+                setCurrentUser(username);
+                closeAuthModal();
+                showToast(`${username}님, 로그인되었습니다.`, 'success');
+            }
+        }
+
+        function handleLogout() {
+            setCurrentUser(null);
+            showToast('로그아웃되었습니다.', 'info');
+        }
+
+        // --- 4. 탭 전환 ---
+        function switchTab(tabName) {
+            const tabs = ['board', 'chats', 'shop'];
+            tabs.forEach(t => {
+                const section = document.getElementById(`tab-${t}`);
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (t === tabName) {
+                    section.classList.remove('hidden');
+                    btn.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
+                    btn.classList.remove('text-slate-600');
+                } else {
+                    section.classList.add('hidden');
+                    btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm');
+                    btn.classList.add('text-slate-600');
+                }
+            });
+
+            if (tabName === 'board') {
+                renderAIMatches();
+                renderItemsList();
+            } else if (tabName === 'chats') {
+                renderChatsTab();
+            } else if (tabName === 'shop') {
+                renderShop();
+            }
+        }
+
+        // --- 5. 물건 등록 모달 및 처리 ---
+        function openRegisterModal() {
+            if (!getCurrentUser()) {
+                showToast('물건을 등록하려면 먼저 로그인해주세요.', 'error');
+                openAuthModal('login');
+                return;
+            }
+            document.getElementById('register-modal').classList.remove('hidden');
+        }
+
+        function closeRegisterModal() {
+            document.getElementById('register-modal').classList.add('hidden');
+            document.getElementById('register-form').reset();
+        }
+
+        function handleRegisterItem(e) {
+            e.preventDefault();
+            const currentUser = getCurrentUser();
+            if (!currentUser) return;
+
+            const type = document.querySelector('input[name="itemType"]:checked').value;
+            const category = document.getElementById('reg-category').value;
+            const location = document.getElementById('reg-location').value.trim();
+            const description = document.getElementById('reg-description').value.trim();
+
+            const now = new Date();
+            const formattedDate = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+            const newItem = {
+                id: 'item-' + Date.now(),
+                type,
+                category,
+                location,
+                description,
+                author: currentUser,
+                status: 'OPEN',
+                createdAt: formattedDate
+            };
+
+            const items = getItems();
+            items.unshift(newItem);
+            saveItems(items);
+
+            closeRegisterModal();
+            updateUI();
+            showToast('등록이 완료되었습니다! AI가 유사한 물건을 자동으로 분석합니다.', 'success');
+        }
+
+        // --- 6. AI 키워드 유사도 매칭 알고리즘 ---
+        function calculateSimilarity(itemA, itemB) {
+            let score = itemA.category === itemB.category ? 35 : 5;
+            const tokenize = (text) => text.toLowerCase().replace(/[^\w\s가-힣]/g, ' ').split(/\s+/).filter(w => w.length >= 2);
+            const tokensA = new Set([...tokenize(itemA.location), ...tokenize(itemA.description)]);
+            const tokensB = new Set([...tokenize(itemB.location), ...tokenize(itemB.description)]);
+            if (tokensA.size === 0 || tokensB.size === 0) return score;
+
+            let matchCount = 0;
+            tokensA.forEach(tA => {
+                tokensB.forEach(tB => {
+                    if (tA === tB || tA.includes(tB) || tB.includes(tA)) matchCount++;
+                });
+            });
+
+            const maxPossible = Math.max(tokensA.size, tokensB.size);
+            const textSimilarity = Math.min(64, Math.round((matchCount / maxPossible) * 65));
+            return Math.min(99, score + textSimilarity);
+        }
+
+        function renderAIMatches() {
+            const items = getItems().filter(i => i.status === 'OPEN');
+            const lostItems = items.filter(i => i.type === 'LOST');
+            const foundItems = items.filter(i => i.type === 'FOUND');
+            const container = document.getElementById('ai-matches-list');
+
+            const matches = [];
+            lostItems.forEach(lost => {
+                foundItems.forEach(found => {
+                    const similarity = calculateSimilarity(lost, found);
+                    if (similarity >= 45) matches.push({ lost, found, similarity });
+                });
+            });
+            matches.sort((a, b) => b.similarity - a.similarity);
+
+            if (matches.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs sm:text-sm text-slate-500">
+                        현재 AI가 탐지한 유사도 45% 이상의 분실물-습득물 매칭 쌍이 없습니다.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = matches.slice(0, 4).map(m => `
+                <div class="bg-indigo-50/40 border border-indigo-100 rounded-xl p-4 flex flex-col justify-between hover:border-indigo-300 transition">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-full">
+                                AI 매칭률 ${m.similarity}%
+                            </span>
+                            <span class="text-xs text-slate-400 font-medium">${m.found.category}</span>
+                        </div>
+                        <div class="space-y-1.5 text-xs">
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-100">
+                                <span class="font-bold text-rose-600">[분실]</span> 
+                                <span class="font-semibold text-slate-700">${m.lost.location}</span> - ${m.lost.description}
+                            </div>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-100">
+                                <span class="font-bold text-emerald-600">[습득]</span> 
+                                <span class="font-semibold text-slate-700">${m.found.location}</span> - ${m.found.description}
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="startAnonymousChat('${m.found.id}')" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5">
+                        <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+                        <span>익명 채팅하기 (습득자에게 문의)</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // --- 7. 전체 게시판 렌더링 ---
+        function renderItemsList() {
+            const keyword = document.getElementById('search-input').value.toLowerCase().trim();
+            const typeFilter = document.getElementById('filter-type').value;
+            const catFilter = document.getElementById('filter-category').value;
+            const currentUser = getCurrentUser();
+
+            let items = getItems().filter(item => {
+                const matchType = typeFilter === 'ALL' || item.type === typeFilter;
+                const matchCat = catFilter === 'ALL' || item.category === catFilter;
+                const matchKeyword = !keyword || 
+                    item.location.toLowerCase().includes(keyword) || 
+                    item.description.toLowerCase().includes(keyword) ||
+                    item.category.toLowerCase().includes(keyword);
+                return matchType && matchCat && matchKeyword;
+            });
+
+            document.getElementById('items-count').textContent = `총 ${items.length}건`;
+            const grid = document.getElementById('items-grid');
+
+            if (items.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-400 text-sm">검색 조건에 맞는 게시글이 없습니다.</div>`;
+                return;
+            }
+
+            grid.innerHTML = items.map(item => {
+                const isLost = item.type === 'LOST';
+                const isCompleted = item.status === 'COMPLETED';
+                const isMyPost = currentUser && item.author === currentUser;
+
+                return `
+                    <div class="bg-white rounded-2xl border ${isCompleted ? 'border-slate-200 opacity-75' : 'border-slate-200 hover:border-indigo-300'} p-5 shadow-sm flex flex-col justify-between transition">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-bold px-2.5 py-1 rounded-lg ${isLost ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}">
+                                    ${isLost ? '분실했어요 (찾는 중)' : '주웠어요 (보관 중)'}
+                                </span>
+                                <span class="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+                                    ${item.category}
+                                </span>
+                            </div>
+                            
+                            <div class="flex items-center text-xs text-slate-500 mb-2 space-x-1">
+                                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-indigo-500"></i>
+                                <span class="font-semibold text-slate-700">${item.location}</span>
+                            </div>
+
+                            <p class="text-sm text-slate-700 leading-relaxed mb-4">
+                                ${item.description}
+                            </p>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-100">
+                            <div class="flex items-center justify-between text-[11px] text-slate-400 mb-3">
+                                <span>작성자: 익명 학생 ${isMyPost ? '<strong class="text-indigo-600">(내 글)</strong>' : ''}</span>
+                                <span>${item.createdAt}</span>
+                            </div>
+
+                            ${isCompleted ? `
+                                <div class="w-full py-2.5 bg-slate-100 text-slate-500 text-xs font-bold rounded-xl text-center">
+                                    ✅ 전달 완료됨 (+50P 지급 완료)
+                                </div>
+                            ` : isMyPost ? `
+                                <button onclick="switchTab('chats')" class="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-xl transition flex items-center justify-center space-x-1.5">
+                                    <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                                    <span>내 글 채팅 문의 확인하기</span>
+                                </button>
+                            ` : `
+                                <button onclick="startAnonymousChat('${item.id}')" class="w-full py-2.5 bg-slate-900 hover:bg-indigo-600 text-white text-xs font-semibold rounded-xl transition flex items-center justify-center space-x-1.5">
+                                    <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+                                    <span>💬 익명 채팅 시작 (${isLost ? '주인 찾아주기' : '내 물건 문의'})</span>
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        // --- 8. 1:1 익명 채팅방 생성 및 관리 ---
+        function startAnonymousChat(itemId) {
+            const currentUser = getCurrentUser();
+            if (!currentUser) {
+                showToast('익명 채팅을 시작하려면 먼저 로그인해주세요.', 'error');
+                openAuthModal('login');
+                return;
+            }
+
+            const items = getItems();
+            const item = items.find(i => i.id === itemId);
+            if (!item) return;
+
+            if (item.author === currentUser) {
+                switchTab('chats');
+                showToast('본인이 작성한 글입니다. 채팅방 목록에서 문의를 확인하세요.', 'info');
+                return;
+            }
+
+            const chats = getChats();
+            const chatId = `chat-${item.id}-${currentUser}`;
+            let existingChat = chats.find(c => c.id === chatId);
+
+            if (!existingChat) {
+                // 습득자(finderId) 결정: 게시글이 FOUND면 작성자가 습득자, LOST면 채팅 요청자가 습득자
+                const finderId = item.type === 'FOUND' ? item.author : currentUser;
+                const now = new Date();
+                const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+                existingChat = {
+                    id: chatId,
+                    itemId: item.id,
+                    authorId: item.author,
+                    requesterId: currentUser,
+                    finderId: finderId,
+                    status: 'ACTIVE',
+                    messages: [
+                        {
+                            sender: currentUser,
+                            text: item.type === 'FOUND' 
+                                ? '안녕하세요! 올리신 습득물 게시글 보고 연락드립니다.' 
+                                : '안녕하세요! 잃어버리신 물건을 제가 주워서 보관 중입니다.',
+                            time: timeStr
+                        }
+                    ]
+                };
+                chats.unshift(existingChat);
+                saveChats(chats);
+            }
+
+            activeChatId = existingChat.id;
+            switchTab('chats');
+        }
+
+        function renderChatsTab() {
+            const currentUser = getCurrentUser();
+            const listContainer = document.getElementById('chat-rooms-list');
+            const panelContainer = document.getElementById('active-chat-panel');
+
+            if (!currentUser) {
+                listContainer.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">로그인이 필요합니다.</div>`;
+                panelContainer.innerHTML = `<div class="flex-grow flex items-center justify-center p-8 text-sm text-slate-400">로그인 후 익명 채팅방을 이용할 수 있습니다.</div>`;
+                return;
+            }
+
+            const chats = getChats().filter(c => c.authorId === currentUser || c.requesterId === currentUser);
+            const items = getItems();
+
+            if (chats.length === 0) {
+                listContainer.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">참여 중인 익명 채팅방이 없습니다.<br/>게시판에서 채팅을 시작해보세요!</div>`;
+                panelContainer.innerHTML = `
+                    <div class="flex-grow flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                        <i data-lucide="message-square-dashed" class="w-10 h-10 mb-2 text-slate-300"></i>
+                        <p class="text-sm font-medium text-slate-500">선택된 채팅방이 없습니다</p>
+                        <p class="text-xs mt-1">분실물 게시판에서 물건을 선택해 익명 대화를 시작하세요.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            // 활성 채팅방이 없거나 목록에 없으면 첫 번째 채팅방 선택
+            if (!activeChatId || !chats.some(c => c.id === activeChatId)) {
+                activeChatId = chats[0].id;
+            }
+
+            // 왼쪽 채팅방 목록 렌더링
+            listContainer.innerHTML = chats.map(chat => {
+                const item = items.find(i => i.id === chat.itemId) || { category: '기타', location: '알 수 없음', description: '삭제된 게시글' };
+                const isSelected = chat.id === activeChatId;
+                const myRole = chat.authorId === currentUser ? '게시글 작성자' : '채팅 요청자';
+                const partnerRole = chat.authorId === currentUser ? '채팅 요청자' : '게시글 작성자';
+                const lastMsg = chat.messages[chat.messages.length - 1];
+
+                return `
+                    <div onclick="selectChatRoom('${chat.id}')" class="p-4 cursor-pointer transition ${isSelected ? 'bg-indigo-50/80 border-l-4 border-indigo-600' : 'hover:bg-white'}">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold text-slate-800">익명 상대 (${partnerRole})</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${chat.status === 'COMPLETED' ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-700'}">
+                                ${chat.status === 'COMPLETED' ? '전달완료' : '대화중'}
+                            </span>
+                        </div>
+                        <div class="text-xs font-medium text-indigo-600 truncate mb-1">
+                            [${item.category}] ${item.location}
+                        </div>
+                        <p class="text-xs text-slate-500 truncate">
+                            ${lastMsg ? lastMsg.text : '대화를 시작해보세요.'}
+                        </p>
+                    </div>
+                `;
+            }).join('');
+
+            // 오른쪽 활성 채팅방 렌더링
+            const activeChat = chats.find(c => c.id === activeChatId);
+            const targetItem = items.find(i => i.id === activeChat.itemId) || { type: 'FOUND', category: '물품', location: '교내', description: '' };
+            const isCompleted = activeChat.status === 'COMPLETED' || targetItem.status === 'COMPLETED';
+            const myRoleLabel = activeChat.authorId === currentUser ? '게시글 작성자 (나)' : '채팅 요청자 (나)';
+            const partnerRoleLabel = activeChat.authorId === currentUser ? '채팅 요청자 (익명)' : '게시글 작성자 (익명)';
+            const amIFinder = activeChat.finderId === currentUser;
+
+            panelContainer.innerHTML = `
+                <!-- 채팅방 상단 헤더 -->
+                <div class="p-4 border-b border-slate-200 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-slate-900 text-sm">${partnerRoleLabel}</span>
+                            <span class="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">내 역할: ${myRoleLabel}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            관련 물품: <strong>[${targetItem.category}] ${targetItem.location}</strong> - ${targetItem.description}
+                        </p>
+                    </div>
+                    ${isCompleted ? `
+                        <span class="bg-slate-100 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap">
+                            ✅ 물건 전달 및 포인트 지급 완료
+                        </span>
+                    ` : `
+                        <button onclick="openCompleteModal('${activeChat.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition whitespace-nowrap flex items-center justify-center space-x-1">
+                            <span>🤝 물건 전달 완료 (포인트 지급)</span>
+                        </button>
+                    `}
+                </div>
+
+                <!-- 개인정보 보호 안내 배너 -->
+                <div class="bg-amber-50 border-b border-amber-200/80 px-4 py-2.5 flex items-center space-x-2 text-xs text-amber-800">
+                    <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 shrink-0"></i>
+                    <span><strong>안심 수칙:</strong> 전화번호, 계좌번호 등 개인정보 요구에 주의하고 교내 안전한 장소에서 만나세요.</span>
+                </div>
+
+                <!-- 메시지 내역 영역 -->
+                <div id="chat-messages-box" class="flex-grow p-4 space-y-3 overflow-y-auto max-h-[300px] bg-slate-50/40">
+                    ${activeChat.messages.map(msg => {
+                        const isMine = msg.sender === currentUser;
+                        const senderRole = msg.sender === activeChat.authorId ? '게시글 작성자' : '채팅 요청자';
+                        return `
+                            <div class="flex flex-col ${isMine ? 'items-end' : 'items-start'}">
+                                <span class="text-[10px] text-slate-400 mb-1 px-1">${isMine ? '나' : senderRole} · ${msg.time}</span>
+                                <div class="max-w-[80%] px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs ${
+                                    isMine 
+                                    ? 'bg-indigo-600 text-white rounded-tr-xs' 
+                                    : 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs'
+                                }">
+                                    ${msg.text}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <!-- 빠른 문구 추천 칩 & 입력창 -->
+                <div class="p-3.5 border-t border-slate-200 bg-white space-y-2.5">
+                    ${!isCompleted ? `
+                        <div class="flex items-center space-x-1.5 overflow-x-auto pb-1">
+                            <span class="text-[11px] font-bold text-slate-400 shrink-0">빠른 질문:</span>
+                            <button type="button" onclick="sendQuickReply('물건의 세부 특징을 알려주실 수 있나요?')" class="text-[11px] bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1 rounded-full whitespace-nowrap transition">
+                                물건의 세부 특징을 알려주실 수 있나요?
+                            </button>
+                            <button type="button" onclick="sendQuickReply('점심시간에 2층 교무실 앞에서 만날까요?')" class="text-[11px] bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1 rounded-full whitespace-nowrap transition">
+                                점심시간에 2층 교무실 앞에서 만날까요?
+                            </button>
+                            <button type="button" onclick="sendQuickReply('특징이 일치하네요! 지금 전달해 드릴 수 있습니다.')" class="text-[11px] bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1 rounded-full whitespace-nowrap transition">
+                                특징이 일치하네요! 전달 가능합니다.
+                            </button>
+                        </div>
+                        <form onsubmit="handleSendMessage(event)" class="flex space-x-2">
+                            <input type="text" id="chat-message-input" required placeholder="익명 메시지를 입력하세요 (개인정보 입력 자제)..." 
+                                class="flex-grow px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition flex items-center space-x-1">
+                                <span>전송</span>
+                                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </form>
+                    ` : `
+                        <div class="text-center text-xs text-slate-400 py-2">
+                            거래가 완료되어 채팅이 종료되었습니다. (${amIFinder ? '습득 보상으로 +50P가 적립되었습니다!' : '습득자에게 +50P가 지급되었습니다.'})
+                        </div>
+                    `}
+                </div>
+            `;
+
+            lucide.createIcons();
+            const msgBox = document.getElementById('chat-messages-box');
+            if (msgBox) msgBox.scrollTop = msgBox.scrollHeight;
+        }
+
+        function selectChatRoom(chatId) {
+            activeChatId = chatId;
+            renderChatsTab();
+        }
+
+        function sendQuickReply(text) {
+            const input = document.getElementById('chat-message-input');
+            if (input) {
+                input.value = text;
+                input.focus();
+            }
+        }
+
+        function handleSendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-message-input');
+            const text = input.value.trim();
+            const currentUser = getCurrentUser();
+            if (!text || !currentUser || !activeChatId) return;
+
+            const chats = getChats();
+            const chatIndex = chats.findIndex(c => c.id === activeChatId);
+            if (chatIndex === -1) return;
+
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+            chats[chatIndex].messages.push({
+                sender: currentUser,
+                text,
+                time: timeStr
+            });
+
+            saveChats(chats);
+            input.value = '';
+            renderChatsTab();
+        }
+
+        // --- 9. 물건 전달 완료 및 습득자 포인트 지급 ---
+        function openCompleteModal(chatId) {
+            pendingCompleteChatId = chatId;
+            document.getElementById('complete-confirm-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeCompleteModal() {
+            pendingCompleteChatId = null;
+            document.getElementById('complete-confirm-modal').classList.add('hidden');
+        }
+
+        function confirmCompleteHandover() {
+            if (!pendingCompleteChatId) return;
+            const chats = getChats();
+            const chatIndex = chats.findIndex(c => c.id === pendingCompleteChatId);
+            if (chatIndex === -1) return;
+
+            const chat = chats[chatIndex];
+            if (chat.status === 'COMPLETED') {
+                closeCompleteModal();
+                return;
+            }
+
+            // 1. 채팅 상태 완료 처리
+            chats[chatIndex].status = 'COMPLETED';
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            chats[chatIndex].messages.push({
+                sender: getCurrentUser(),
+                text: '🤝 [시스템] 물건 전달이 완료되었습니다! 습득자에게 +50 포인트가 지급되었습니다.',
+                time: timeStr
+            });
+            saveChats(chats);
+
+            // 2. 게시글 상태 완료 처리
+            const items = getItems();
+            const itemIndex = items.findIndex(i => i.id === chat.itemId);
+            if (itemIndex !== -1) {
+                items[itemIndex].status = 'COMPLETED';
+                saveItems(items);
+            }
+
+            // 3. 습득자(finderId)에게 +50 포인트 지급
+            const users = getUsers();
+            const finderId = chat.finderId;
+            if (users[finderId]) {
+                users[finderId].points += 50;
+                saveUsers(users);
+            }
+
+            closeCompleteModal();
+            updateUI();
+            showToast(`🎉 전달 완료! 습득자(${finderId})에게 +50P가 지급되었습니다!`, 'success');
+        }
+
+        // --- 10. 포인트 보상샵 ---
+        function renderShop() {
+            const currentUser = getCurrentUser();
+            const users = getUsers();
+            const pointsEl = document.getElementById('shop-user-points');
+            const couponsContainer = document.getElementById('my-coupons-list');
+
+            if (!currentUser || !users[currentUser]) {
+                pointsEl.textContent = '로그인 필요';
+                couponsContainer.innerHTML = `<div class="col-span-full text-sm text-slate-400 py-4">로그인 후 보유 쿠폰을 확인할 수 있습니다.</div>`;
+                return;
+            }
+
+            const userData = users[currentUser];
+            pointsEl.textContent = `${userData.points} P`;
+
+            if (!userData.coupons || userData.coupons.length === 0) {
+                couponsContainer.innerHTML = `<div class="col-span-full text-sm text-slate-400 py-4">아직 교환한 쿠폰이 없습니다. 물건을 찾아주고 포인트로 교환해보세요!</div>`;
+                return;
+            }
+
+            couponsContainer.innerHTML = userData.coupons.map(c => `
+                <div class="border border-indigo-100 bg-indigo-50/40 rounded-xl p-4 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded border border-indigo-100">사용 가능</span>
+                            <span class="text-[11px] text-slate-400">${c.date}</span>
+                        </div>
+                        <h4 class="font-bold text-slate-800 text-sm mt-2">${c.name}</h4>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-indigo-100/80 flex items-center justify-between">
+                        <span class="text-xs font-mono font-bold text-slate-600">${c.code}</span>
+                        <span class="text-[11px] text-indigo-600 font-semibold">학생회/매점 제시</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function redeemReward(rewardName, cost) {
+            const currentUser = getCurrentUser();
+            if (!currentUser) {
+                showToast('보상을 교환하려면 먼저 로그인해주세요.', 'error');
+                openAuthModal('login');
+                return;
+            }
+
+            const users = getUsers();
+            const userData = users[currentUser];
+
+            if (userData.points < cost) {
+                showToast(`포인트가 부족합니다. (필요: ${cost}P / 보유: ${userData.points}P)`, 'error');
+                return;
+            }
+
+            userData.points -= cost;
+            if (!userData.coupons) userData.coupons = [];
+
+            const randomCode = 'SF-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+            const now = new Date();
+            const dateStr = `${now.getMonth()+1}/${now.getDate()}`;
+
+            userData.coupons.unshift({
+                name: rewardName,
+                code: randomCode,
+                date: dateStr
+            });
+
+            saveUsers(users);
+            updateUI();
+            showToast(`🎁 '${rewardName}' 교환 완료! 쿠폰함에서 바코드 번호를 확인하세요.`, 'success');
+        }
+
+        // --- 11. 전체 UI 동기화 ---
+        function updateUI() {
+            const currentUser = getCurrentUser();
+            const users = getUsers();
+            const headerArea = document.getElementById('user-header-area');
+            const guestBanner = document.getElementById('guest-banner');
+
+            // 데모 계정 버튼 하이라이트 업데이트
+            ['student1', 'student2'].forEach(acc => {
+                const desktopBtn = document.getElementById(`demo-btn-${acc}`);
+                const mobileBtn = document.getElementById(`demo-btn-m-${acc}`);
+                const isActive = currentUser === acc;
+                [desktopBtn, mobileBtn].forEach(btn => {
+                    if (!btn) return;
+                    if (isActive) {
+                        btn.className = 'text-xs px-2.5 py-1 rounded-lg font-bold bg-indigo-600 text-white shadow-2xs transition';
+                    } else {
+                        btn.className = 'text-xs px-2.5 py-1 rounded-lg font-medium text-slate-600 hover:bg-slate-200 transition';
+                    }
+                });
+            });
+
+            // 활성 채팅 뱃지 업데이트
+            const chatBadge = document.getElementById('chat-badge-count');
+            if (currentUser) {
+                const myActiveChats = getChats().filter(c => (c.authorId === currentUser || c.requesterId === currentUser) && c.status === 'ACTIVE');
+                if (myActiveChats.length > 0) {
+                    chatBadge.textContent = myActiveChats.length;
+                    chatBadge.classList.remove('hidden');
+                } else {
+                    chatBadge.classList.add('hidden');
+                }
+            } else {
+                chatBadge.classList.add('hidden');
+            }
+
+            if (currentUser && users[currentUser]) {
+                const points = users[currentUser].points;
+                guestBanner.classList.add('hidden');
+                headerArea.innerHTML = `
+                    <div class="flex items-center bg-amber-50 border border-amber-200 px-2.5 sm:px-3 py-1.5 rounded-xl">
+                        <i data-lucide="coins" class="w-4 h-4 text-amber-500 mr-1"></i>
+                        <span class="text-xs font-extrabold text-amber-700">${points} P</span>
+                    </div>
+                    <div class="flex items-center space-x-1 text-xs sm:text-sm font-semibold text-slate-700 bg-slate-100 px-2.5 sm:px-3 py-1.5 rounded-xl">
+                        <i data-lucide="user" class="w-3.5 h-3.5 text-slate-500"></i>
+                        <span>${currentUser}</span>
+                    </div>
+                    <button onclick="handleLogout()" class="text-xs font-semibold text-slate-500 hover:text-rose-600 px-2 py-1.5 rounded-lg transition">
+                        로그아웃
+                    </button>
+                `;
+            } else {
+                guestBanner.classList.remove('hidden');
+                headerArea.innerHTML = `
+                    <button onclick="openAuthModal('login')" class="text-xs sm:text-sm font-semibold text-slate-600 hover:text-indigo-600 px-2.5 py-1.5 transition">
+                        로그인
+                    </button>
+                    <button onclick="openAuthModal('signup')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-xl shadow-sm transition">
+                        익명 가입
+                    </button>
+                `;
+            }
+
+            renderAIMatches();
+            renderItemsList();
+            renderChatsTab();
+            renderShop();
+            lucide.createIcons();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            updateUI();
+        });
+    </script>
+</body>
+</html>
